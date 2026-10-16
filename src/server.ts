@@ -2,7 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
-import { checkRateLimit, extractClientIp } from "./lib/security";
+import { checkRateLimit, extractClientIp, detectMaliciousPayloadOrScanner, isBrazilianTraffic } from "./lib/security";
 
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
@@ -53,12 +53,20 @@ function applySecurityHeaders(headers: Headers): void {
   headers.set("X-XSS-Protection", "1; mode=block");
   headers.set(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=()"
+    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=()"
   );
 
-  // Mask server fingerprinting to prevent enumeration of backend stack
+  // Content Security Policy against unauthorized injected scripts and asset theft
+  headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: https: blob:; connect-src 'self' https:; frame-ancestors 'none';"
+  );
+
+  // Mask and camouflage server identity & environment stack
   headers.delete("X-Powered-By");
   headers.delete("Server");
+  headers.delete("x-nitro-version");
+  headers.set("Server", "cloudflare"); // Camouflage banner
 }
 
 export default {
@@ -67,8 +75,34 @@ export default {
       const clientIp = extractClientIp(request);
       const url = new URL(request.url);
 
+      // WAF: Check for malicious scanner payloads, bots probing for hidden config or injection
+      const threat = detectMaliciousPayloadOrScanner(url, request);
+      if (threat.malicious) {
+        // Return stealth 404 or drop silently to blind scanners
+        return new Response("Not Found", {
+          status: 404,
+          headers: {
+            "Content-Type": "text/plain",
+            "Server": "cloudflare",
+          },
+        });
+      }
+
+      // Geo-restriction shield: Ensure incoming leads/visitors originate from Brazil (when behind Cloudflare)
+      // Allow Telegram webhooks to function from Telegram servers (which originate globally)
+      const isTelegramWebhook = url.pathname === "/api/telegram-webhook";
+      if (!isTelegramWebhook && !isBrazilianTraffic(request)) {
+        return new Response("Acesso restrito ao território nacional.", {
+          status: 403,
+          headers: {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Server": "cloudflare",
+          },
+        });
+      }
+
       // Webhook do Telegram para receber comandos do Admin Supremo (/whatsapp, /nome, /add_token, etc)
-      if (url.pathname === "/api/telegram-webhook" && request.method === "POST") {
+      if (isTelegramWebhook && request.method === "POST") {
         try {
           const body = await request.json();
           const { handleTelegramUpdate } = await import("./lib/telegram-webhook");
@@ -77,26 +111,29 @@ export default {
             status: 200,
             headers: { "Content-Type": "application/json" },
           });
-        } catch (e) {
+        } catch {
           return new Response(JSON.stringify({ ok: false }), { status: 200 });
         }
       }
 
-      // Protect against endpoint flooding and automated scanners
-      const isApiOrPost = request.method !== "GET" || url.pathname.includes("/_serverFn");
-      const limitRule = isApiOrPost
-        ? { windowMs: 60_000, maxRequests: 60 } // stricter for state/actions
-        : { windowMs: 60_000, maxRequests: 180 }; // reasonable threshold for asset/page navigation
+      // Layer 7 DDoS Mitigation: Granular rate limiting per client
+      const isApiOrPost = request.method !== "POST" ? false : true;
+      const isServerFn = url.pathname.includes("/_serverFn");
+      
+      const limitRule = isServerFn || isApiOrPost
+        ? { windowMs: 60_000, maxRequests: 45, blockDurationMs: 600_000 } // Anti-Bruteforce on actions
+        : { windowMs: 60_000, maxRequests: 180, blockDurationMs: 300_000 }; // Anti-Scraping / flood
 
-      const rateCheck = checkRateLimit(`${clientIp}:${isApiOrPost ? "action" : "view"}`, limitRule);
+      const rateCheck = checkRateLimit(`${clientIp}:${isServerFn ? "fn" : request.method}`, limitRule);
 
       if (!rateCheck.allowed) {
-        return new Response("Too Many Requests. Anti-abuse rate limit exceeded.", {
+        return new Response("Too Many Requests. Connection restricted.", {
           status: 429,
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
             "Retry-After": Math.ceil((rateCheck.resetAt - Date.now()) / 1000).toString(),
             "X-Content-Type-Options": "nosniff",
+            "Server": "cloudflare",
           },
         });
       }
@@ -124,4 +161,3 @@ export default {
     }
   },
 };
-

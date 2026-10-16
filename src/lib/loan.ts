@@ -30,13 +30,80 @@ export const maskPhone = (v: string) => {
 export const maskDate = (v: string) =>
   onlyDigits(v).slice(0, 8).replace(/(\d{2})(\d)/, "$1/$2").replace(/(\d{2})(\d)/, "$1/$2");
 
+// Official ANATEL Brazilian DDDs
+const VALID_BRAZILIAN_DDDS = new Set([
+  11, 12, 13, 14, 15, 16, 17, 18, 19, // SP
+  21, 22, 24, // RJ
+  27, 28, // ES
+  31, 32, 33, 34, 35, 37, 38, // MG
+  41, 42, 43, 44, 45, 46, // PR
+  47, 48, 49, // SC
+  51, 53, 54, 55, // RS
+  61, // DF
+  62, 64, // GO
+  63, // TO
+  65, 66, // MT
+  67, // MS
+  68, // AC
+  69, // RO
+  71, 73, 74, 75, 77, // BA
+  79, // SE
+  81, 87, // PE
+  82, // AL
+  83, // PB
+  84, // RN
+  85, 88, // CE
+  86, 89, // PI
+  91, 93, 94, // PA
+  92, 97, // AM
+  95, // RR
+  96, // AP
+  98, 99, // MA
+]);
+
 export const isValidPhone = (v: string) => {
   const d = onlyDigits(v);
-  return d.length === 11 && d[2] === "9" && Number(d.slice(0, 2)) >= 11;
+  if (d.length !== 11) return false;
+  
+  const ddd = Number(d.slice(0, 2));
+  if (!VALID_BRAZILIAN_DDDS.has(ddd)) return false;
+
+  // Brazilian mobile numbers must start with digit 9
+  if (d[2] !== "9") return false;
+
+  // Reject sequence of identical phone numbers like (11) 99999-9999, (11) 91111-1111
+  const numberPart = d.slice(2);
+  if (/^(\d)\1{8}$/.test(numberPart)) return false;
+
+  return true;
 };
 
-export const isValidName = (v: string) =>
-  /^[A-Za-zÀ-ÖØ-öø-ÿ' ]+$/.test(v.trim()) && v.trim().split(/\s+/).length >= 2 && v.trim().length <= 100;
+const SUSPICIOUS_FAKE_NAMES = new Set([
+  "teste", "test", "asdf", "qwerty", "fulano", "ciclano", "beltrano", "anonimo", "usuario", "cliente", "lead", "fake"
+]);
+
+export const isValidName = (v: string) => {
+  const trimmed = v.trim();
+  if (trimmed.length < 5 || trimmed.length > 100) return false;
+  if (!/^[A-Za-zÀ-ÖØ-öø-ÿ' ]+$/.test(trimmed)) return false;
+
+  const parts = trimmed.split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return false;
+
+  // Each name part must be at least 2 characters (e.g. not "A B")
+  if (parts.some((p) => p.length < 2)) return false;
+
+  // Detect suspicious test/fake names
+  const lower = trimmed.toLowerCase();
+  for (const part of parts) {
+    if (SUSPICIOUS_FAKE_NAMES.has(part.toLowerCase())) return false;
+  }
+
+  // Reject repetitive character sequences like "aaaa bbbb", "kkkkkk"
+  if (/(.)\1{3,}/.test(lower)) return false;
+
+  return true;
+};
 
 /** dd/mm/aaaa -> ISO, requiring age 18–110. */
 export function parseBirthDate(v: string): string | null {

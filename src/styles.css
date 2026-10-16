@@ -104,6 +104,20 @@
   h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0; }
 
   /* Anti-copy & Brand Protection */
+  body {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  input, textarea {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+
   img {
     -webkit-user-drag: none;
     user-drag: none;
