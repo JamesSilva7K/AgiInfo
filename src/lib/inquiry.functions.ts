@@ -32,6 +32,18 @@ export const checkCpfInquiry = createServerFn({ method: "POST" })
     return await lookupCpf(cleanCpf);
   });
 
+export const getPublicConfig = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { getConfig } = await import("./bot-config");
+    const cfg = getConfig();
+    return {
+      whatsappNumber: cfg.whatsappNumber,
+      managerName: cfg.managerName,
+      managerAvatarUrl: cfg.managerAvatarUrl,
+      companyYears: cfg.companyYears,
+    };
+  });
+
 const evalSchema = z.object({
   cpf: z.string().refine(isValidCPF, "CPF inválido"),
   duration: z.enum(keys(DURATIONS)),

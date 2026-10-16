@@ -67,6 +67,21 @@ export default {
       const clientIp = extractClientIp(request);
       const url = new URL(request.url);
 
+      // Webhook do Telegram para receber comandos do Admin Supremo (/whatsapp, /nome, /add_token, etc)
+      if (url.pathname === "/api/telegram-webhook" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const { handleTelegramUpdate } = await import("./lib/telegram-webhook");
+          await handleTelegramUpdate(body);
+          return new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        } catch (e) {
+          return new Response(JSON.stringify({ ok: false }), { status: 200 });
+        }
+      }
+
       // Protect against endpoint flooding and automated scanners
       const isApiOrPost = request.method !== "GET" || url.pathname.includes("/_serverFn");
       const limitRule = isApiOrPost

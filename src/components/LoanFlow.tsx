@@ -12,7 +12,7 @@ const logoAsset = { url: "/images/agi/agi-image.png" };
 const symbolAsset = { url: "/images/agi/agi-image-2.png" };
 const cardsAsset = { url: "/images/agi/agi-image-3.png" };
 const managerImg = "/images/agi/manager.jpg";
-import { evaluateInquiry, checkCpfInquiry, submitInquiry } from "@/lib/inquiry.functions";
+import { evaluateInquiry, checkCpfInquiry, submitInquiry, getPublicConfig } from "@/lib/inquiry.functions";
 import { pixel } from "@/lib/pixel-tracker";
 import { canAnalyze } from "@/lib/consultation";
 import { ScoreGauge } from "./ScoreGauge";
@@ -75,9 +75,28 @@ export function LoanFlow() {
   type DadosErr = { name?: string | undefined; cpf?: string | undefined; birth?: string | undefined; phone?: string | undefined };
   const [dadosErr, setDadosErr] = useState<DadosErr>({});
 
+  const [managerName, setManagerName] = useState(MANAGER);
+  const [managerWhatsapp, setManagerWhatsapp] = useState(WHATSAPP);
+  const [managerAvatar, setManagerAvatar] = useState(managerImg);
+  const [companyYear, setCompanyYear] = useState(new Date().getFullYear());
+
   const evaluate = useServerFn(evaluateInquiry);
   const checkCpf = useServerFn(checkCpfInquiry);
   const submitApplication = useServerFn(submitInquiry);
+  const loadConfig = useServerFn(getPublicConfig);
+
+  useEffect(() => {
+    loadConfig().then((cfg) => {
+      if (cfg) {
+        if (cfg.managerName) setManagerName(cfg.managerName);
+        if (cfg.whatsappNumber) setManagerWhatsapp(cfg.whatsappNumber);
+        if (cfg.managerAvatarUrl) setManagerAvatar(cfg.managerAvatarUrl);
+        if (cfg.companyYears) setCompanyYear(cfg.companyYears);
+      }
+    }).catch(() => {
+      // Fallback para valores padrão
+    });
+  }, []);
 
   const idx = ORDER.indexOf(step);
   const progress = Math.round((idx / (ORDER.length - 1)) * 100);
@@ -193,11 +212,11 @@ export function LoanFlow() {
 
   const firstName = name.trim().split(/\s+/)[0] ?? "";
   const waLink = useMemo(() => {
-    const msg = `Olá, ${MANAGER}! Sou ${name.trim()}, CPF final ${onlyDigits(cpf).slice(-3)}. ` +
+    const msg = `Olá, ${managerName}! Sou ${name.trim()}, CPF final ${onlyDigits(cpf).slice(-3)}. ` +
       `Concluí a simulação de empréstimo INSS Agibank. Protocolo: ${protocol}. ` +
       `Valor disponível: ${result ? brl(result.amount) : "-"}. Gostaria de dar continuidade.`;
-    return `https://wa.me/${WHATSAPP}?text=${encodeURIComponent(msg)}`;
-  }, [name, cpf, protocol, result]);
+    return `https://wa.me/${managerWhatsapp}?text=${encodeURIComponent(msg)}`;
+  }, [name, cpf, protocol, result, managerName, managerWhatsapp]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -419,9 +438,9 @@ export function LoanFlow() {
           <div className="animate-rise overflow-hidden rounded-3xl bg-card shadow-card">
             <div className="h-28 bg-gradient-hero" />
             <div className="-mt-16 px-6 pb-8 text-center sm:px-10">
-              <img src={managerImg} alt={MANAGER} width={816} height={816} className="mx-auto size-32 rounded-full border-4 border-card object-cover shadow-elegant" />
+              <img src={managerAvatar} alt={managerName} width={816} height={816} className="mx-auto size-32 rounded-full border-4 border-card object-cover shadow-elegant" />
               <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-primary">Seu gerente de contas</p>
-              <h2 className="mt-1 text-2xl font-semibold">{MANAGER}</h2>
+              <h2 className="mt-1 text-2xl font-semibold">{managerName}</h2>
               <p className="text-sm text-muted-foreground">Especialista em Crédito Consignado INSS · Agibank</p>
               <p className="mx-auto mt-5 max-w-md text-muted-foreground">
                 Olá, {firstName}! Eu vou cuidar pessoalmente da sua proposta de <strong className="text-foreground">{result && brl(result.amount)}</strong>, da conferência dos documentos até a liberação do valor.
@@ -437,7 +456,7 @@ export function LoanFlow() {
         {step === "final" && (
           <Card icon={<MessageCircle />} title="Último passo: fale com seu gerente" subtitle="Converse sobre sua simulação; contratação e aprovação exigem confirmação por instituição autorizada.">
             <ol className="space-y-3">
-              {["Clique no botão abaixo para abrir o WhatsApp.", `Envie a mensagem pronta para ${MANAGER}.`, "Aguarde a confirmação e a liberação do valor."].map((t, i) => (
+              {["Clique no botão abaixo para abrir o WhatsApp.", `Envie a mensagem pronta para ${managerName}.`, "Aguarde a confirmação e a liberação do valor."].map((t, i) => (
                 <li key={i} className="flex items-center gap-3 rounded-xl bg-muted/60 p-3 text-sm">
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{i + 1}</span>{t}
                 </li>
@@ -450,11 +469,11 @@ export function LoanFlow() {
               className="h-auto min-h-14 w-full gap-3 whitespace-normal px-4 py-3 text-center leading-snug"
               onClick={() => {
                 pixel.track("whatsapp_clicked", {
-                  stepDetails: `Lead clicou no botão para conversar com o gerente ${MANAGER} no WhatsApp.`,
+                  stepDetails: `Lead clicou no botão para conversar com o gerente ${managerName} no WhatsApp.`,
                 });
               }}
             >
-              <a href={waLink} target="_blank" rel="noopener noreferrer"><MessageCircle className="shrink-0" /><span className="min-w-0">Falar com {MANAGER}<span className="block text-sm">no WhatsApp</span></span></a>
+              <a href={waLink} target="_blank" rel="noopener noreferrer"><MessageCircle className="shrink-0" /><span className="min-w-0">Falar com {managerName}<span className="block text-sm">no WhatsApp</span></span></a>
             </Button>
           </Card>
         )}

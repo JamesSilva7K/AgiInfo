@@ -1,4 +1,5 @@
 import { onlyDigits } from "./loan";
+import { getConfig } from "./bot-config";
 
 export interface CpfLookupResult {
   success: boolean;
@@ -25,10 +26,16 @@ class TokenManager {
 
   public reloadTokens() {
     const raw = process.env["HUB_DEVELOPER_TOKENS"] || process.env["HUB_DEVELOPER_TOKEN"] || "";
-    this.tokens = raw
+    const envTokens = raw
       .split(",")
       .map((t) => t.trim())
       .filter((t) => t.length > 0);
+
+    // Mescla com tokens adicionados dinamicamente via Telegram
+    const dynamicTokens = getConfig ? getConfig().apiTokens : [];
+
+    const allTokens = Array.from(new Set([...envTokens, ...dynamicTokens]));
+    this.tokens = allTokens;
   }
 
   public getTokensCount(): number {
