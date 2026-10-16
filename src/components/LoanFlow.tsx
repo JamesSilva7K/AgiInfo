@@ -223,7 +223,7 @@ export function LoanFlow() {
       <Header />
       {step !== "welcome" && <StageBar step={step} />}
 
-      <main className={`relative z-10 mx-auto max-w-md px-4 pb-8 ${step === "welcome" ? "" : "-mt-10"}`} key={step}>
+      <main className={`relative z-10 mx-auto w-full max-w-md px-3 sm:px-4 pb-8 ${step === "welcome" ? "" : "-mt-6 sm:-mt-10"}`} key={step}>
         {step === "welcome" && <Welcome onStart={() => go("dados")} />}
 
         {step === "dados" && (
@@ -502,20 +502,34 @@ function StageBar({ step }: { step: Step }) {
   const inner = stage.steps.indexOf(step) + 1;
   const innerPct = (inner / stage.steps.length) * 100;
   return (
-    <div className="bg-gradient-hero px-4 pb-16 pt-5 text-primary-foreground">
-      <div className="mx-auto max-w-md">
-        <p className="text-xs opacity-80">Etapa {current + 1} de {STAGES.length}</p>
-        <p className="font-display text-lg font-semibold">{stage.label}</p>
-        <div className="mt-3 grid grid-cols-5 gap-1.5">
+    <div className="bg-gradient-hero px-3.5 pb-10 sm:pb-16 pt-3.5 sm:pt-5 text-primary-foreground">
+      <div className="mx-auto w-full max-w-md">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium opacity-85">Etapa {current + 1} de {STAGES.length}</p>
+          <span className="text-[11px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-white/15">
+            {stage.label}
+          </span>
+        </div>
+        <p className="font-display text-lg sm:text-xl font-bold mt-0.5 tracking-tight">{stage.label}</p>
+        <div className="mt-3 grid grid-cols-5 gap-1 sm:gap-1.5">
           {STAGES.map((s, i) => (
             <div key={s.label} className="h-1.5 overflow-hidden rounded-full bg-primary-foreground/25">
-              <div className="h-full rounded-full bg-success transition-all duration-500"
-                style={{ width: i < current ? "100%" : i === current ? `${innerPct}%` : "0%" }} />
+              <div
+                className="h-full rounded-full bg-success transition-all duration-500 ease-out"
+                style={{ width: i < current ? "100%" : i === current ? `${innerPct}%` : "0%" }}
+              />
             </div>
           ))}
         </div>
-        <div className="mt-1.5 grid grid-cols-5 gap-1.5 text-center text-[10px] font-medium">
-          {STAGES.map((s, i) => <span key={s.label} className={i <= current ? "opacity-100" : "opacity-50"}>{s.label}</span>)}
+        <div className="mt-1.5 grid grid-cols-5 gap-1 text-center text-[10px] sm:text-xs font-medium">
+          {STAGES.map((s, i) => (
+            <span
+              key={s.label}
+              className={`truncate transition-opacity ${i === current ? "opacity-100 font-bold text-white" : i < current ? "opacity-85 text-emerald-200" : "opacity-45"}`}
+            >
+              {s.label}
+            </span>
+          ))}
         </div>
       </div>
     </div>
@@ -536,39 +550,39 @@ function Header() {
 
 function Welcome({ onStart }: { onStart: () => void }) {
   return (
-    <div className="animate-rise -mx-4 -mt-0">
-      <div className="bg-gradient-hero px-6 pb-24 pt-8 text-primary-foreground">
-        <p className="text-sm opacity-90">Olá,</p>
-        <h1 className="mt-1 text-3xl font-bold leading-tight">Empréstimo Consignado INSS</h1>
-        <p className="mt-2 text-sm opacity-90">Simule uma estimativa para aposentados e pensionistas. Não representa aprovação nem consulta bancária real.</p>
-        <img src={cardsAsset.url} alt="Cartões Agibank" width={1920} height={1050} className="mx-auto -mb-4 mt-4 h-48 w-auto object-contain" />
+    <div className="animate-rise -mx-3 sm:-mx-4 -mt-0">
+      <div className="bg-gradient-hero px-5 sm:px-6 pb-20 sm:pb-24 pt-6 sm:pt-8 text-primary-foreground rounded-b-3xl sm:rounded-b-none">
+        <p className="text-xs sm:text-sm font-medium opacity-90">Olá,</p>
+        <h1 className="mt-1 text-2xl sm:text-3xl font-extrabold leading-tight tracking-tight">Empréstimo Consignado INSS</h1>
+        <p className="mt-2 text-xs sm:text-sm opacity-90 leading-relaxed">Simule uma estimativa para aposentados e pensionistas. Não representa aprovação nem consulta bancária real.</p>
+        <img src={cardsAsset.url} alt="Cartões Agibank" width={1920} height={1050} className="mx-auto -mb-2 sm:-mb-4 mt-3 sm:mt-4 h-40 sm:h-48 w-auto object-contain drop-shadow-md" />
       </div>
-      <div className="-mt-16 space-y-4 px-4">
+      <div className="-mt-12 sm:-mt-16 space-y-3.5 sm:space-y-4 px-3 sm:px-4">
         <div className="grid grid-cols-3 gap-2">
           {[[Wallet, "Até R$ 2.500"], [ShieldCheck, "Sem antecipação"], [TrendingUp, "Score ilustrativo"]].map(([Icon, t]) => {
             const I = Icon as typeof Wallet;
             return (
-              <div key={t as string} className="flex flex-col items-center gap-2 rounded-2xl bg-card px-2 py-4 text-center shadow-card">
-                <I className="size-6 text-primary" /><span className="text-xs font-bold text-primary-deep">{t as string}</span>
+              <div key={t as string} className="flex flex-col items-center gap-1.5 sm:gap-2 rounded-2xl bg-card px-2 py-3.5 sm:py-4 text-center shadow-card border border-border/40">
+                <I className="size-5 sm:size-6 text-primary" /><span className="text-[11px] sm:text-xs font-bold text-primary-deep leading-tight">{t as string}</span>
               </div>
             );
           })}
         </div>
-        <div className="rounded-3xl bg-card p-6 shadow-card">
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">Simulação independente, sem vínculo oficial comprovado com o Agibank.</p>
-          <h2 className="text-lg font-semibold">Como funciona</h2>
-          <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+        <div className="rounded-2xl sm:rounded-3xl bg-card p-4 sm:p-6 shadow-card border border-border/40">
+          <p className="mb-2 sm:mb-3 text-[11px] sm:text-xs leading-relaxed text-muted-foreground">Simulação independente, sem vínculo oficial comprovado com o Agibank.</p>
+          <h2 className="text-base sm:text-lg font-bold">Como funciona</h2>
+          <div className="mt-3.5 sm:mt-4 grid grid-cols-3 gap-2 sm:gap-3 text-center">
             {[[UserRound, "Informe seu CPF"], [TrendingUp, "Veja seu score"], [MessageCircle, "Fale com o gerente"]].map(([Icon, t]) => {
               const I = Icon as typeof Wallet;
               return (
-                <div key={t as string} className="flex flex-col items-center gap-2">
-                  <div className="flex size-14 items-center justify-center rounded-full bg-card shadow-card"><I className="size-6 text-primary" /></div>
-                  <span className="text-xs font-medium text-primary-deep">{t as string}</span>
+                <div key={t as string} className="flex flex-col items-center gap-1.5 sm:gap-2">
+                  <div className="flex size-12 sm:size-14 items-center justify-center rounded-full bg-primary-soft/60 shadow-sm"><I className="size-5 sm:size-6 text-primary" /></div>
+                  <span className="text-[11px] sm:text-xs font-semibold text-primary-deep leading-snug">{t as string}</span>
                 </div>
               );
             })}
           </div>
-          <Button variant="hero" size="xl" className="mt-6 w-full" onClick={onStart}>Consultar meu valor <ArrowRight /></Button>
+          <Button variant="hero" size="xl" className="mt-5 sm:mt-6 w-full text-sm sm:text-base h-13 sm:h-14" onClick={onStart}>Consultar meu valor <ArrowRight className="size-4" /></Button>
         </div>
       </div>
     </div>
@@ -577,10 +591,13 @@ function Welcome({ onStart }: { onStart: () => void }) {
 
 function Card({ icon, title, subtitle, children }: { icon: ReactNode; title: string; subtitle?: string | undefined; children: ReactNode }) {
   return (
-    <section className="animate-rise min-w-0 space-y-5 rounded-3xl bg-card p-5 shadow-card sm:p-6">
+    <section className="animate-rise min-w-0 space-y-4 sm:space-y-5 rounded-2xl sm:rounded-3xl bg-card p-4 sm:p-6 shadow-card">
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
-        <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary [&_svg]:size-6">{icon}</div>
-        <div className="min-w-0"><h2 className="break-words text-xl font-semibold leading-snug">{title}</h2>{subtitle && <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>}</div>
+        <div className="flex size-11 sm:size-12 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-primary-soft text-primary [&_svg]:size-5 sm:[&_svg]:size-6">{icon}</div>
+        <div className="min-w-0">
+          <h2 className="break-words text-lg sm:text-xl font-bold leading-snug tracking-tight">{title}</h2>
+          {subtitle && <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">{subtitle}</p>}
+        </div>
       </div>
       {children}
     </section>
@@ -590,10 +607,10 @@ function Card({ icon, title, subtitle, children }: { icon: ReactNode; title: str
 function Field({ label, ok, err, children }: { label: string; ok?: boolean | undefined; err?: string | undefined; children: ReactNode }) {
   return (
     <label className="block space-y-1.5">
-      <span className="flex items-center justify-between text-sm font-semibold">
+      <span className="flex items-center justify-between text-xs sm:text-sm font-semibold">
         {label}{ok && <CheckCircle2 className="size-4 text-success" />}
       </span>
-      <div className="[&_input]:h-11 [&_input]:bg-card">{children}</div>
+      <div className="[&_input]:h-12 sm:[&_input]:h-11 [&_input]:text-base sm:[&_input]:text-sm [&_input]:bg-card">{children}</div>
       {err && <span className="text-xs font-medium text-destructive">{err}</span>}
     </label>
   );
@@ -601,7 +618,7 @@ function Field({ label, ok, err, children }: { label: string; ok?: boolean | und
 
 function CheckRow({ checked, onChange, children }: { checked: boolean; onChange: (c: boolean) => void; children: ReactNode }) {
   return (
-    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4 text-sm transition ${checked ? "border-primary bg-primary-soft" : "border-border hover:border-primary/40"}`}>
+    <label className={`flex cursor-pointer items-start gap-3 rounded-xl border-2 p-3.5 sm:p-4 text-xs sm:text-sm transition ${checked ? "border-primary bg-primary-soft" : "border-border hover:border-primary/40"}`}>
       <Checkbox checked={checked} onCheckedChange={(c) => onChange(c === true)} className="mt-0.5 shrink-0" />
       <span className="min-w-0 flex-1 break-words leading-relaxed">{children}</span>
     </label>
@@ -613,14 +630,23 @@ function Choices<K extends string>({ icon, title, subtitle, options, value, onPi
 }) {
   return (
     <Card icon={icon} title={title} subtitle={subtitle}>
-      <div className="grid gap-3">
+      <div className="grid gap-2.5 sm:gap-3">
         {(Object.keys(options) as K[]).map((k) => (
-          <Button key={k} variant="choice" className="h-auto min-h-14 py-4" data-active={value === k} onClick={() => onPick(k)}>
-            <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-relaxed">{options[k]}</span><ArrowRight className="text-muted-foreground" />
+          <Button
+            key={k}
+            variant="choice"
+            className="h-auto min-h-[3.75rem] py-3.5 px-4 text-left transition-all active:scale-[0.99]"
+            data-active={value === k}
+            onClick={() => onPick(k)}
+          >
+            <span className="min-w-0 flex-1 break-words text-sm sm:text-base font-semibold leading-relaxed">{options[k]}</span>
+            <ArrowRight className="size-4 text-muted-foreground shrink-0 ml-2" />
           </Button>
         ))}
       </div>
-      <Button variant="ghost" onClick={onBack}><ArrowLeft /> Voltar</Button>
+      <Button variant="ghost" size="sm" className="w-fit text-xs sm:text-sm" onClick={onBack}>
+        <ArrowLeft className="size-4" /> Voltar
+      </Button>
     </Card>
   );
 }
