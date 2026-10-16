@@ -219,11 +219,12 @@ export function LoanFlow() {
   }, [name, cpf, protocol, result, managerName, managerWhatsapp]);
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      {step !== "welcome" && <StageBar step={step} />}
+    <div className="min-h-screen bg-slate-100 flex flex-col items-center">
+      <div className="w-full max-w-md min-h-screen bg-background flex flex-col shadow-2xl relative">
+        <Header />
+        {step !== "welcome" && <StageBar step={step} />}
 
-      <main className={`relative z-10 mx-auto w-full max-w-md px-3 sm:px-4 pb-8 ${step === "welcome" ? "" : "-mt-6 sm:-mt-10"}`} key={step}>
+        <main className={`relative z-10 flex-1 w-full px-4 pb-8 ${step === "welcome" ? "" : "-mt-14"}`} key={step}>
         {step === "welcome" && <Welcome onStart={() => go("dados")} />}
 
         {step === "dados" && (
@@ -477,12 +478,13 @@ export function LoanFlow() {
             </Button>
           </Card>
         )}
-      </main>
-      <footer className="mx-auto max-w-md space-y-1 px-6 pb-10 text-center text-[11px] text-muted-foreground">
-        <img src={symbolAsset.url} alt="" width={28} height={28} className="mx-auto mb-2 size-7 opacity-80" />
-        <p>© {new Date().getFullYear()} Consulta INSS. Todos os direitos reservados.</p>
-        <p>Simulação independente · Sem vínculo oficial comprovado com o Agibank</p>
-      </footer>
+        </main>
+        <footer className="w-full space-y-1 px-6 pb-10 pt-4 text-center text-[11px] text-muted-foreground mt-auto">
+          <img src={symbolAsset.url} alt="" width={28} height={28} className="mx-auto mb-2 size-7 opacity-80" />
+          <p>© {new Date().getFullYear()} Consulta INSS. Todos os direitos reservados.</p>
+          <p>Simulação independente · Sem vínculo oficial comprovado com o Agibank</p>
+        </footer>
+      </div>
     </div>
   );
 }
@@ -502,16 +504,11 @@ function StageBar({ step }: { step: Step }) {
   const inner = stage.steps.indexOf(step) + 1;
   const innerPct = (inner / stage.steps.length) * 100;
   return (
-    <div className="bg-gradient-hero px-3.5 pb-10 sm:pb-16 pt-3.5 sm:pt-5 text-primary-foreground">
-      <div className="mx-auto w-full max-w-md">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium opacity-85">Etapa {current + 1} de {STAGES.length}</p>
-          <span className="text-[11px] font-semibold tracking-wide uppercase px-2 py-0.5 rounded-full bg-white/15">
-            {stage.label}
-          </span>
-        </div>
-        <p className="font-display text-lg sm:text-xl font-bold mt-0.5 tracking-tight">{stage.label}</p>
-        <div className="mt-3 grid grid-cols-5 gap-1 sm:gap-1.5">
+    <div className="bg-gradient-hero px-5 pb-20 pt-6 text-primary-foreground">
+      <div className="w-full">
+        <p className="text-xs font-medium opacity-85">Etapa {current + 1} de {STAGES.length}</p>
+        <p className="font-display text-xl font-bold mt-0.5 tracking-tight">{stage.label}</p>
+        <div className="mt-3.5 grid grid-cols-5 gap-1.5">
           {STAGES.map((s, i) => (
             <div key={s.label} className="h-1.5 overflow-hidden rounded-full bg-primary-foreground/25">
               <div
@@ -521,11 +518,11 @@ function StageBar({ step }: { step: Step }) {
             </div>
           ))}
         </div>
-        <div className="mt-1.5 grid grid-cols-5 gap-1 text-center text-[10px] sm:text-xs font-medium">
+        <div className="mt-2 grid grid-cols-5 gap-1 text-center text-[10px] sm:text-xs font-medium">
           {STAGES.map((s, i) => (
             <span
               key={s.label}
-              className={`truncate transition-opacity ${i === current ? "opacity-100 font-bold text-white" : i < current ? "opacity-85 text-emerald-200" : "opacity-45"}`}
+              className={`truncate transition-opacity ${i === current ? "opacity-100 font-bold text-white" : i < current ? "opacity-90 text-emerald-200" : "opacity-45"}`}
             >
               {s.label}
             </span>
@@ -591,12 +588,12 @@ function Welcome({ onStart }: { onStart: () => void }) {
 
 function Card({ icon, title, subtitle, children }: { icon: ReactNode; title: string; subtitle?: string | undefined; children: ReactNode }) {
   return (
-    <section className="animate-rise min-w-0 space-y-4 sm:space-y-5 rounded-2xl sm:rounded-3xl bg-card p-4 sm:p-6 shadow-card">
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3">
-        <div className="flex size-11 sm:size-12 shrink-0 items-center justify-center rounded-xl sm:rounded-2xl bg-primary-soft text-primary [&_svg]:size-5 sm:[&_svg]:size-6">{icon}</div>
+    <section className="animate-rise min-w-0 space-y-5 rounded-3xl bg-card p-6 shadow-card border border-border/30">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3.5">
+        <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary-soft text-primary [&_svg]:size-6">{icon}</div>
         <div className="min-w-0">
-          <h2 className="break-words text-lg sm:text-xl font-bold leading-snug tracking-tight">{title}</h2>
-          {subtitle && <p className="mt-0.5 sm:mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">{subtitle}</p>}
+          <h2 className="break-words text-xl font-bold leading-snug tracking-tight text-foreground">{title}</h2>
+          {subtitle && <p className="mt-1 text-xs sm:text-sm text-muted-foreground leading-relaxed">{subtitle}</p>}
         </div>
       </div>
       {children}
