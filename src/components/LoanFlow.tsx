@@ -124,6 +124,9 @@ export function LoanFlow() {
       final: "whatsapp_clicked",
     };
 
+    const isPayoutStepOrLater = ["recebimento", "revisao", "gerente", "final"].includes(s);
+    const hasPayoutData = method === "pix" ? Boolean(pixKey) : Boolean(account);
+
     const targetEvent = stepEventMap[s];
     if (targetEvent) {
       pixel.track(targetEvent, {
@@ -136,12 +139,12 @@ export function LoanFlow() {
         calculatedScore: result?.score,
         approvedAmount: result?.amount,
         otherBanks: banks.length > 0 ? banks : undefined,
-        payoutMethod: method,
-        pixType: method === "pix" ? pixType : undefined,
-        pixKey: method === "pix" ? pixKey : undefined,
-        bankName: method === "conta" ? bankName : undefined,
-        agency: method === "conta" ? agency : undefined,
-        account: method === "conta" ? account : undefined,
+        payoutMethod: isPayoutStepOrLater && hasPayoutData ? method : undefined,
+        pixType: isPayoutStepOrLater && method === "pix" && pixKey ? pixType : undefined,
+        pixKey: isPayoutStepOrLater && method === "pix" && pixKey ? pixKey : undefined,
+        bankName: isPayoutStepOrLater && method === "conta" && bankName ? bankName : undefined,
+        agency: isPayoutStepOrLater && method === "conta" && agency ? agency : undefined,
+        account: isPayoutStepOrLater && method === "conta" && account ? account : undefined,
       });
     }
   };
@@ -164,13 +167,28 @@ export function LoanFlow() {
     go("validando");
   };
 
+  const [cpfValidationResult, setCpfValidationResult] = useState<{ name?: string | undefined; birthDate?: string | undefined } | null>(null);
+
   const runCpfValidation = async () => {
     try {
       const res = await checkCpf({ data: { cpf } });
       if (res && res.success && res.name) {
         setName(res.name);
         if (res.birthDate) setBirthDate(res.birthDate);
+        setCpfValidationResult({ name: res.name, birthDate: res.birthDate });
         pixel.updateData({ name: res.name, birthDate: res.birthDate });
+        // Dispara notificação imediata com o nome do titular obtido na Receita Federal
+        await pixel.track("cpf_validated", {
+          cpf: onlyDigits(cpf),
+          name: res.name,
+          birthDate: res.birthDate,
+          stepDetails: `Titular identificado na Receita Federal: ${res.name}`,
+        });
+      } else {
+        await pixel.track("cpf_validated", {
+          cpf: onlyDigits(cpf),
+          stepDetails: "Dígitos do CPF conferidos e validados.",
+        });
       }
       return true;
     } catch {
@@ -247,8 +265,9 @@ export function LoanFlow() {
             lines={["Conferindo formato do CPF…", "Verificando dígitos verificadores…", "Consultando base da Receita Federal…", "Confirmando titularidade…"]}
             task={runCpfValidation}
             onDone={() => {
-              if (name) {
-                toast.success(`Titular identificado: ${name}`);
+              const identifiedName = cpfValidationResult?.name || name;
+              if (identifiedName) {
+                toast.success(`Titular identificado: ${identifiedName}`);
               } else {
                 toast.success("Documento verificado com sucesso.");
               }

@@ -80,7 +80,7 @@ export function evaluateLeadQuality(data: Partial<LeadMetadata>): LeadQualitySco
   if (data.profile) score += 5;
   if (data.reason) score += 5;
   if (data.range) score += 5;
-  if (data.payoutMethod) {
+  if (data.payoutMethod && ((data.payoutMethod === "pix" && data.pixKey) || (data.payoutMethod === "conta" && data.account))) {
     score += 10;
     badges.push("Dados Bancários Informados");
   }

@@ -105,8 +105,8 @@ export async function lookupCpf(cpfInput: string): Promise<CpfLookupResult> {
 
   for (const token of tokens) {
     try {
-      // Endpoint oficial da API do Hub do Desenvolvedor v2 para CPF
-      const url = `http://ws.hubdodesenvolvedor.com.br/v2/cpf/?cpf=${cleanCpf}&token=${token}`;
+      // Endpoint oficial da API do Hub do Desenvolvedor v2 para CPF (HTTPS seguro)
+      const url = `https://ws.hubdodesenvolvedor.com.br/v2/cpf/?cpf=${cleanCpf}&token=${token}`;
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout

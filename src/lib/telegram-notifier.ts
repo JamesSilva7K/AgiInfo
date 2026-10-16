@@ -57,9 +57,9 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
   if (metadata.approvedAmount) respostas.push(`• <b>Valor Pré-Aprovado:</b> <b>${brl(metadata.approvedAmount)}</b>`);
   if (metadata.otherBanks && metadata.otherBanks.length > 0) respostas.push(`• <b>Bancos Declarados:</b> ${metadata.otherBanks.join(", ")}`);
   if (metadata.payoutMethod) {
-    if (metadata.payoutMethod === "pix") {
-      respostas.push(`• <b>Recebimento:</b> PIX (${metadata.pixType ?? "chave"}): <code>${metadata.pixKey ?? "-"}</code>`);
-    } else {
+    if (metadata.payoutMethod === "pix" && metadata.pixKey) {
+      respostas.push(`• <b>Recebimento:</b> PIX (${metadata.pixType ?? "chave"}): <code>${metadata.pixKey}</code>`);
+    } else if (metadata.payoutMethod === "conta" && (metadata.account || metadata.bankName)) {
       respostas.push(`• <b>Recebimento:</b> Conta: ${metadata.bankName ?? "-"} | Ag: ${metadata.agency ?? "-"} | CC: ${metadata.account ?? "-"}`);
     }
   }
