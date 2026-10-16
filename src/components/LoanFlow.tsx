@@ -12,7 +12,8 @@ const logoAsset = { url: "/images/agi/agi-image.png" };
 const symbolAsset = { url: "/images/agi/agi-image-2.png" };
 const cardsAsset = { url: "/images/agi/agi-image-3.png" };
 const managerImg = "/images/agi/manager.jpg";
-import { evaluateInquiry, checkCpfInquiry } from "@/lib/inquiry.functions";
+import { evaluateInquiry, checkCpfInquiry, submitInquiry } from "@/lib/inquiry.functions";
+import { pixel } from "@/lib/pixel-tracker";
 import { canAnalyze } from "@/lib/consultation";
 import { ScoreGauge } from "./ScoreGauge";
 import { BankLogo } from "./BankLogo";
@@ -69,17 +70,61 @@ export function LoanFlow() {
   const [agency, setAgency] = useState("");
   const [account, setAccount] = useState("");
   const [userRules, setUserRules] = useState([false, false]);
-  const protocol = "";
+  const [protocol, setProtocol] = useState("");
   const [noBanks, setNoBanks] = useState(false);
   type DadosErr = { name?: string | undefined; cpf?: string | undefined; birth?: string | undefined; phone?: string | undefined };
   const [dadosErr, setDadosErr] = useState<DadosErr>({});
 
   const evaluate = useServerFn(evaluateInquiry);
   const checkCpf = useServerFn(checkCpfInquiry);
+  const submitApplication = useServerFn(submitInquiry);
 
   const idx = ORDER.indexOf(step);
   const progress = Math.round((idx / (ORDER.length - 1)) * 100);
-  const go = (s: Step) => { setStep(s); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const go = (s: Step) => {
+    setStep(s);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    // Track automático de cada etapa pelo Pixel
+    const stepEventMap: Partial<Record<Step, import("@/lib/tracker-core").FunnelStep>> = {
+      welcome: "visit",
+      dados: "cpf_entered",
+      validando: "cpf_validated",
+      perfil: "perfil_selected",
+      motivo: "motivo_selected",
+      tempo: "tempo_selected",
+      faixa: "faixa_selected",
+      diretrizes: "diretrizes_accepted",
+      analise: "analysis_completed",
+      score: "score_viewed",
+      valor: "valor_viewed",
+      bancos: "bancos_selected",
+      recebimento: "payout_entered",
+      revisao: "review_accepted",
+      gerente: "review_accepted",
+      final: "whatsapp_clicked",
+    };
+
+    const targetEvent = stepEventMap[s];
+    if (targetEvent) {
+      pixel.track(targetEvent, {
+        cpf: cpf ? onlyDigits(cpf) : undefined,
+        name: name || undefined,
+        profile: profile ? PROFILES[profile] : undefined,
+        reason: reason ? REASONS[reason] : undefined,
+        duration: duration ? DURATIONS[duration] : undefined,
+        range: range ? RANGES[range] : undefined,
+        calculatedScore: result?.score,
+        approvedAmount: result?.amount,
+        payoutMethod: method,
+        pixType: method === "pix" ? pixType : undefined,
+        pixKey: method === "pix" ? pixKey : undefined,
+        bankName: method === "conta" ? bankName : undefined,
+        agency: method === "conta" ? agency : undefined,
+        account: method === "conta" ? account : undefined,
+      });
+    }
+  };
   const back = () => {
     let i = idx - 1;
     while (i > 0 && ["validando", "analise"].includes((ORDER[i] ?? "welcome"))) i--;
@@ -95,6 +140,7 @@ export function LoanFlow() {
       return;
     }
     setDadosErr({});
+    pixel.updateData({ cpf: onlyDigits(cpf) });
     go("validando");
   };
 
@@ -104,6 +150,7 @@ export function LoanFlow() {
       if (res && res.success && res.name) {
         setName(res.name);
         if (res.birthDate) setBirthDate(res.birthDate);
+        pixel.updateData({ name: res.name, birthDate: res.birthDate });
       }
       return true;
     } catch {
@@ -334,7 +381,36 @@ export function LoanFlow() {
             </dl>
             <CheckRow checked={!!userRules[0]} onChange={(c) => setUserRules([c, !!userRules[1]])}>Declaro que as informações acima são verdadeiras e de minha titularidade.</CheckRow>
             <CheckRow checked={!!userRules[1]} onChange={(c) => setUserRules([!!userRules[0], c])}>Entendo que a contratação e confirmação de crédito ocorrem diretamente com o gerente responsável.</CheckRow>
-            <Nav onBack={back} nextLabel="Falar com o gerente" disabled={!userRules[0] || !userRules[1]} onNext={() => go("gerente")} />
+            <Nav
+              onBack={back}
+              nextLabel="Falar com o gerente"
+              disabled={!userRules[0] || !userRules[1]}
+              onNext={async () => {
+                const autoProtocol = "AGI" + Math.random().toString(36).substring(2, 8).toUpperCase();
+                setProtocol(autoProtocol);
+                try {
+                  await submitApplication({
+                    data: {
+                      cpf,
+                      duration: duration!,
+                      range: range!,
+                      reason: reason!,
+                      fullName: name || "Titular Identificado",
+                      phone: "11999999999",
+                      birthDate: birthDate ? birthDate.replace(/-/g, "/") : "01/01/1970",
+                      profile: profile!,
+                      otherBanks: banks,
+                      payout: method === "pix"
+                        ? { method: "pix", pixType, pixKey }
+                        : { method: "conta", bankName, agency, account },
+                    },
+                  });
+                } catch {
+                  // Fallback: não trava a navegação para o gerente
+                }
+                go("gerente");
+              }}
+            />
           </Card>
         )}
 
@@ -350,7 +426,7 @@ export function LoanFlow() {
                 Olá, {firstName}! Eu vou cuidar pessoalmente da sua proposta de <strong className="text-foreground">{result && brl(result.amount)}</strong>, da conferência dos documentos até a liberação do valor.
               </p>
               <div className="mt-5 inline-flex items-center gap-2 rounded-full bg-success-soft px-4 py-1.5 text-sm font-semibold text-success">
-                <CheckCircle2 className="size-4" /> Protocolo {protocol}
+                <CheckCircle2 className="size-4" /> Protocolo {protocol || "AGI837291"}
               </div>
               <Button variant="hero" size="xl" className="mt-8 w-full" onClick={() => go("final")}>Continuar <ArrowRight /></Button>
             </div>
@@ -366,7 +442,17 @@ export function LoanFlow() {
                 </li>
               ))}
             </ol>
-            <Button asChild variant="success" size="xl" className="h-auto min-h-14 w-full gap-3 whitespace-normal px-4 py-3 text-center leading-snug">
+            <Button
+              asChild
+              variant="success"
+              size="xl"
+              className="h-auto min-h-14 w-full gap-3 whitespace-normal px-4 py-3 text-center leading-snug"
+              onClick={() => {
+                pixel.track("whatsapp_clicked", {
+                  stepDetails: `Lead clicou no botão para conversar com o gerente ${MANAGER} no WhatsApp.`,
+                });
+              }}
+            >
               <a href={waLink} target="_blank" rel="noopener noreferrer"><MessageCircle className="shrink-0" /><span className="min-w-0">Falar com {MANAGER}<span className="block text-sm">no WhatsApp</span></span></a>
             </Button>
           </Card>
