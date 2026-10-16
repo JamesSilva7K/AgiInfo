@@ -72,6 +72,7 @@ export const evaluateInquiry = createServerFn({ method: "POST" })
   });
 
 const submitSchema = evalSchema.extend({
+  leadId: z.string().optional(),
   fullName: z.string().trim().refine(isValidName, "Nome inválido"),
   phone: z.string().refine(isValidPhone, "Celular inválido"),
   birthDate: z.string().refine((v) => parseBirthDate(v) !== null, "Data inválida"),
@@ -112,7 +113,7 @@ export const submitInquiry = createServerFn({ method: "POST" })
     // Notifica instantaneamente o bot do Telegram com a proposta final completa
     const { sendTelegramNotification } = await import("./telegram-notifier");
     await sendTelegramNotification({
-      leadId: `LEAD_${cleanCpf.slice(0, 6)}`,
+      leadId: data.leadId || `LEAD_${cleanCpf.slice(0, 6)}`,
       cpf: data.cpf,
       name: data.fullName.trim(),
       phone: data.phone,

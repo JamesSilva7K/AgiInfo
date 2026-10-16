@@ -246,14 +246,10 @@ export function LoanFlow() {
         {step === "welcome" && <Welcome onStart={() => go("dados")} />}
 
         {step === "dados" && (
-          <Card icon={<UserRound />} title="Informe seu CPF" subtitle="O CPF identifica o titular na simulação.">
+          <Card icon={<UserRound />} title="Informe seu CPF" subtitle="Digite seu CPF para iniciarmos sua simulação com segurança.">
             <Field label="CPF do titular" ok={isValidCPF(cpf)} err={dadosErr.cpf ?? (onlyDigits(cpf).length === 11 && !isValidCPF(cpf) ? "CPF inválido" : undefined)}>
               <Input aria-label="CPF do titular" inputMode="numeric" maxLength={14} value={cpf} placeholder="000.000.000-00" onChange={(e) => { setCpf(maskCPF(e.target.value)); setDadosErr({}); }} />
             </Field>
-            <div className="border-l-2 border-primary bg-primary-soft p-4 text-sm leading-relaxed">
-              <p className="font-semibold">Consulta automática de titularidade</p>
-              <p className="mt-1 text-muted-foreground">Localizamos automaticamente o nome oficial do titular nos registros para personalizar sua simulação de empréstimo consignado.</p>
-            </div>
             <Secure />
             <Nav onBack={back} onNext={submitDados} disabled={!isValidCPF(cpf)} />
           </Card>
@@ -431,6 +427,7 @@ export function LoanFlow() {
                 try {
                   await submitApplication({
                     data: {
+                      leadId: pixel.getLeadId(),
                       cpf,
                       duration: duration!,
                       range: range!,

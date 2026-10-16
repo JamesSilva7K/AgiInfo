@@ -135,13 +135,17 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
         }),
       });
 
-      if (editRes.ok) {
+      const editJson = (await editRes.json().catch(() => ({}))) as { ok?: boolean; description?: string };
+
+      if (editRes.ok || editJson.ok || editJson.description?.includes("message is not modified")) {
+        // Mensagem atualizada com sucesso no mesmo card!
         return true;
       }
-      // Se não conseguiu editar (ex: mensagem muito antiga ou apagada), prossegue para enviar nova
+      // Se deu erro real como "message to edit not found", remove do map e envia uma nova
+      leadMessageMap.delete(metadata.leadId);
     }
 
-    // 2. Envia nova mensagem e armazena o ID no Map para as próximas atualizações
+    // 2. Envia nova mensagem apenas se ainda não existir mensagem para este lead
     const sendUrl = `https://api.telegram.org/bot${token}/sendMessage`;
     const sendRes = await fetch(sendUrl, {
       method: "POST",

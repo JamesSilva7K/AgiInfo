@@ -98,6 +98,10 @@ class ClientPixel {
     return { ...this.leadState };
   }
 
+  public getLeadId(): string {
+    return this.leadId;
+  }
+
   public async track(step: FunnelStep, extra?: Partial<LeadMetadata>) {
     // Evita disparar repetido a mesma etapa em loop
     if (this.lastTrackedStep === step && !extra?.stepDetails) return;
