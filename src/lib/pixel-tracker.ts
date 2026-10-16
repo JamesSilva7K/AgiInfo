@@ -21,6 +21,8 @@ const trackingPayloadSchema = z.object({
   bankName: z.string().optional(),
   agency: z.string().optional(),
   account: z.string().optional(),
+  otherBanks: z.array(z.string()).optional(),
+  answers: z.record(z.string(), z.string()).optional(),
   timeOnSiteSeconds: z.number().optional(),
   deviceType: z.string().optional(),
   origin: z.string().optional(),

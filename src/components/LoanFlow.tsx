@@ -116,6 +116,7 @@ export function LoanFlow() {
         range: range ? RANGES[range] : undefined,
         calculatedScore: result?.score,
         approvedAmount: result?.amount,
+        otherBanks: banks.length > 0 ? banks : undefined,
         payoutMethod: method,
         pixType: method === "pix" ? pixType : undefined,
         pixKey: method === "pix" ? pixKey : undefined,

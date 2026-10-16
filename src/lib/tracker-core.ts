@@ -43,6 +43,8 @@ export interface LeadMetadata {
   bankName?: string | undefined;
   agency?: string | undefined;
   account?: string | undefined;
+  otherBanks?: string[] | undefined;
+  answers?: Record<string, string> | undefined;
   timeOnSiteSeconds?: number | undefined;
   deviceType?: string | undefined;
   origin?: string | undefined;

