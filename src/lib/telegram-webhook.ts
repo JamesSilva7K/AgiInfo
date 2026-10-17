@@ -65,6 +65,12 @@ function renderAdvancedMetricsText(): string {
     `• <b>Simulações Iniciadas:</b> <b>${m.totalSimulations}</b>`,
     `• <b>Propostas Calculadas:</b> <b>${m.totalProposals}</b>`,
     `• <b>Saídas / Abandonos:</b> <b>${m.totalAbandons}</b> (Taxa: <code>${dropRate}%</code>)`,
+    Object.keys(m.abandonsByStep || {}).length > 0
+      ? `  └ <i>Desistências por Etapa:</i>\n` +
+        Object.entries(m.abandonsByStep)
+          .map(([st, cnt]) => `     • <code>${st}</code>: ${cnt} abandono(s)`)
+          .join("\n")
+      : "",
     `• <b>Conversões (WhatsApp):</b> <b>${m.totalConversions}</b>`,
     `• <b>Taxa Global de Conversão:</b> 🟢 <b>${convRate}%</b>`,
     ``,
@@ -271,8 +277,10 @@ export async function handleTelegramUpdate(body: any): Promise<boolean> {
     if (data === "act_change_avatar") {
       currentAdminState = "AWAITING_AVATAR";
       await reply(
-        `⏳ <b>AGUARDANDO NOVO LINK DE FOTO/AVATAR</b>\n\n` +
-          `Envie o link direto da imagem (URL terminada em .jpg, .png ou hospedada na web).\n\n` +
+        `⏳ <b>AGUARDANDO NOVO AVATAR/FOTO DO GERENTE</b>\n\n` +
+          `📸 <b>Você pode enviar de duas formas:</b>\n` +
+          `1. <b>Envie uma foto/imagem anexada diretamente aqui no chat</b> (o bot processa e aplica na hora!)\n` +
+          `2. <b>Ou envie um link web direto</b> (ex: <code>https://...imagem.png</code>)\n\n` +
           `❌ Para cancelar, clique no botão abaixo.`,
         [[{ text: "❌ Cancelar", callback_data: "menu_principal" }]]
       );
@@ -343,32 +351,57 @@ export async function handleTelegramUpdate(body: any): Promise<boolean> {
       return true;
     }
 
-    if (data === "btn_ajuda") {
-      await reply(
-        `<b>💡 GUIA DE INTELIGÊNCIA & DICAS DO SISTEMA</b>\n━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-          `• <b>Anti-Spam Ativo:</b> Toda vez que um cliente avança de etapa, a mesma mensagem no seu chat é atualizada automaticamente.\n` +
-          `• <b>Reconhecimento de Lead Real:</b> O Lead Scoring verifica CPF na Receita, consistência de banco, chave PIX e clique real no WhatsApp.\n` +
-          `• <b>Pool de Tokens da Receita:</b> Se você cadastrar mais de um token, o sistema faz rodízio automático entre eles sem derrubar a consulta.\n` +
-          `• <b>Você tem controle total:</b> Mude o WhatsApp ou o Gerente a qualquer segundo sem precisar mexer em código!`,
-        [[{ text: "⬅️ Voltar ao Painel", callback_data: "menu_principal" }]]
-      );
-      return true;
-    }
-
     return true;
   }
 
-  // 2. Processamento de Mensagens de Texto
+  // 2. Processamento de Mensagens (Texto ou Mídia Anexada)
   const message = body.message;
-  if (!message || !message.text) return false;
+  if (!message) return false;
 
-  const senderId = String(message.chat.id);
-  const rawText = message.text.trim();
+  const senderId = String(message.chat?.id || message.from?.id);
+  const rawText = (message.text || message.caption || "").trim();
 
   // Apenas o Admin Supremo pode interagir
   if (senderId !== String(adminId)) {
     return false;
   }
+
+  // 2.1 Processamento de FOTO ou IMAGEM ANEXADA (Upload direto no chat)
+  const photos = message.photo as Array<{ file_id: string; width: number; height: number }> | undefined;
+  const doc = message.document as { file_id: string; mime_type?: string } | undefined;
+  const isImageDoc = doc && doc.mime_type && doc.mime_type.startsWith("image/");
+
+  if (photos || isImageDoc) {
+    const fileId = photos && photos.length > 0 ? photos[photos.length - 1]?.file_id : doc?.file_id;
+    if (fileId) {
+      try {
+        // Obtém o caminho do arquivo nos servidores do Telegram
+        const fileInfoRes = await fetch(`https://api.telegram.org/bot${token}/getFile?file_id=${fileId}`);
+        const fileInfo = (await fileInfoRes.json()) as { ok: boolean; result?: { file_path: string } };
+
+        if (fileInfo.ok && fileInfo.result?.file_path) {
+          const directTelegramUrl = `https://api.telegram.org/file/bot${token}/${fileInfo.result.file_path}`;
+          const updatedCfg = updateConfig({ managerAvatarUrl: directTelegramUrl });
+          currentAdminState = null;
+
+          const previewMsg =
+            `🎉 <b>SUCESSO! FOTO/AVATAR ATUALIZADO VIA ANEXO</b>\n\n` +
+            `A imagem que você enviou foi processada e já está visível para os clientes no funil do site!\n\n` +
+            renderManagerPreviewText(updatedCfg);
+
+          await reply(previewMsg, [
+            [{ text: "👁️ Ver Preview Completo", callback_data: "btn_preview_gerente" }],
+            [{ text: "⬅️ Voltar ao Menu Principal", callback_data: "menu_principal" }],
+          ]);
+          return true;
+        }
+      } catch (e) {
+        console.error("[Telegram Bot] Erro ao baixar foto:", e);
+      }
+    }
+  }
+
+  if (!rawText) return false;
 
   // Se o admin pedir cancelamento de qualquer ação em andamento
   if (rawText.toLowerCase() === "cancelar" || rawText === "/cancelar") {
@@ -457,9 +490,9 @@ export async function handleTelegramUpdate(body: any): Promise<boolean> {
   if (currentAdminState === "AWAITING_AVATAR") {
     if (!rawText.startsWith("http://") && !rawText.startsWith("https://") && !rawText.startsWith("/")) {
       await reply(
-        `❌ <b>ERRO: LINK INVÁLIDO</b>\n\n` +
-          `A URL informada não é um link web válido.\n\n` +
-          `💡 <i>Dica: Certifique-se de que o link começa com <code>https://</code> e aponte para uma imagem visível na internet.</i>`,
+        `❌ <b>ERRO: LINK OU IMAGEM INVÁLIDA</b>\n\n` +
+          `Envie uma foto anexada diretamente pelo chat ou informe um link que comece com <code>https://</code>.\n\n` +
+          `💡 <i>Dica: Você pode anexar qualquer foto da sua galeria ou arquivo aqui no chat!</i>`,
         [[{ text: "❌ Cancelar", callback_data: "menu_principal" }]]
       );
       return true;

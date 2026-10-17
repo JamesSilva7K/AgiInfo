@@ -4,6 +4,7 @@ import path from "path";
 export interface SystemMetrics {
   totalVisits: number; // Entradas totais no site
   totalAbandons: number; // Saídas / abandono de página
+  abandonsByStep: Record<string, number>; // Saídas detalhadas por etapa do funil
   totalSimulations: number; // Simulações iniciadas
   totalProposals: number; // Propostas calculadas com score
   totalConversions: number; // Leads que clicaram no WhatsApp (Conversão Real)
@@ -22,6 +23,7 @@ function getInitialMetrics(): SystemMetrics {
   return {
     totalVisits: 0,
     totalAbandons: 0,
+    abandonsByStep: {},
     totalSimulations: 0,
     totalProposals: 0,
     totalConversions: 0,
@@ -65,8 +67,11 @@ export function recordVisit() {
   persistMetrics();
 }
 
-export function recordAbandon() {
+export function recordAbandon(step?: string) {
   activeMetrics.totalAbandons += 1;
+  if (step) {
+    activeMetrics.abandonsByStep[step] = (activeMetrics.abandonsByStep[step] || 0) + 1;
+  }
   persistMetrics();
 }
 

@@ -39,7 +39,10 @@ export const dispatchPixelEvent = createServerFn({ method: "POST" })
       // Atualiza métricas reais do sistema
       const { recordVisit, recordAbandon, recordConversion, recordSimulation, recordProposal } = await import("./system-metrics");
       if (data.step === "visit") recordVisit();
-      else if (data.step === "page_exit") recordAbandon();
+      else if (data.step === "page_exit") {
+        const exitStep = data.stepDetails?.replace("Parou na etapa: ", "") || "inicio";
+        recordAbandon(exitStep);
+      }
       else if (data.step === "cpf_entered" || data.step === "cpf_validated") recordSimulation();
       else if (data.step === "valor_viewed" || data.step === "review_accepted") {
         if (data.approvedAmount) recordProposal(data.approvedAmount);
