@@ -41,7 +41,7 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
     payout_entered: "💳 13. Informou Dados de Recebimento",
     whatsapp_entered: "📱 14. Informou WhatsApp para Contato do Gerente",
     review_accepted: "📑 15. Confirmou Proposta & Protocolo Gerado",
-    whatsapp_clicked: "🚀 16. CLICOU PARA FALAR NO WHATSAPP COM O GERENTE!",
+    whatsapp_clicked: "🎉 16. PROPOSTA CONCLUÍDA (Aguardando contato do Gerente)",
     page_exit: "🚪 ABANDONOU A PÁGINA",
   };
 

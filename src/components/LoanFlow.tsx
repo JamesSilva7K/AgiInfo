@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
-  ArrowLeft, ArrowRight, BadgeCheck, Building2, CheckCircle2, FileCheck2, Landmark,
+  ArrowLeft, ArrowRight, BadgeCheck, Building2, CheckCircle2, Clock, FileCheck2, Landmark,
   Loader2, Lock, MessageCircle, Phone, ShieldCheck, Sparkles, TrendingUp, UserRound, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -437,7 +437,7 @@ export function LoanFlow() {
             title="Seu WhatsApp para contato"
             subtitle={`Informe seu WhatsApp com DDD para que o gerente ${managerName} possa entrar em contato direto para liberar seu empréstimo.`}
           >
-            <Field label="WhatsApp com DDD" ok={isValidPhone(phone)} error={dadosErr.phone}>
+            <Field label="WhatsApp com DDD" ok={isValidPhone(phone)} err={dadosErr.phone}>
               <Input
                 type="tel"
                 inputMode="numeric"
@@ -532,27 +532,76 @@ export function LoanFlow() {
         )}
 
         {step === "final" && (
-          <Card icon={<MessageCircle />} title="Último passo: fale com seu gerente" subtitle="Converse sobre sua simulação; contratação e aprovação exigem confirmação por instituição autorizada.">
-            <ol className="space-y-3">
-              {["Clique no botão abaixo para abrir o WhatsApp.", `Envie a mensagem pronta para ${managerName}.`, "Aguarde a confirmação e a liberação do valor."].map((t, i) => (
-                <li key={i} className="flex items-center gap-3 rounded-xl bg-muted/60 p-3 text-sm">
-                  <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{i + 1}</span>{t}
-                </li>
-              ))}
-            </ol>
-            <Button
-              asChild
-              variant="success"
-              size="xl"
-              className="h-auto min-h-14 w-full gap-3 whitespace-normal px-4 py-3 text-center leading-snug"
-              onClick={() => {
-                pixel.track("whatsapp_clicked", {
-                  stepDetails: `Lead clicou no botão para conversar com o gerente ${managerName} no WhatsApp.`,
-                });
-              }}
-            >
-              <a href={waLink} target="_blank" rel="noopener noreferrer"><MessageCircle className="shrink-0" /><span className="min-w-0">Falar com {managerName}<span className="block text-sm">no WhatsApp</span></span></a>
-            </Button>
+          <Card
+            icon={<CheckCircle2 className="size-6 text-success" />}
+            title="Proposta enviada com sucesso!"
+            subtitle="Suas informações foram recebidas e já estão na fila de atendimento prioritário."
+          >
+            {/* Bloco de aviso oficial com ícones vetoriais */}
+            <div className="rounded-2xl border-2 border-emerald-500/20 bg-emerald-500/5 p-4 sm:p-5 text-left space-y-3">
+              <div className="flex items-start gap-3">
+                <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+                  <Phone className="size-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-bold text-sm sm:text-base text-foreground">
+                    O gerente {managerName} entrará em contato com você
+                  </h3>
+                  <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                    Você receberá uma mensagem direta no seu WhatsApp cadastrado (<strong>{phone}</strong>) para confirmar os detalhes e formalizar a liberação do seu crédito de <strong className="text-foreground">{result && brl(result.amount)}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-emerald-500/15 text-xs">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <Clock className="size-4 text-emerald-600 shrink-0" />
+                  <span>Tempo de resposta: <strong>Até 15 min</strong></span>
+                </div>
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <ShieldCheck className="size-4 text-emerald-600 shrink-0" />
+                  <span>Atendimento oficial <strong>Agibank</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {/* Etapas seguintes informativas para o lead com ícones vetoriais */}
+            <div className="space-y-2.5 text-left">
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">O que acontece agora?</p>
+              <div className="space-y-2">
+                {[
+                  {
+                    icon: <Phone className="size-4 text-primary" />,
+                    title: "Contato no WhatsApp",
+                    desc: `O gerente ${managerName} enviará uma mensagem no seu número.`,
+                  },
+                  {
+                    icon: <FileCheck2 className="size-4 text-primary" />,
+                    title: "Validação cadastral",
+                    desc: "Confirmação rápida dos dados do benefício sem burocracia.",
+                  },
+                  {
+                    icon: <Wallet className="size-4 text-emerald-600" />,
+                    title: "Liberação do valor",
+                    desc: "Depósito realizado na sua conta ou via chave PIX cadastrada.",
+                  },
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-3 rounded-xl bg-muted/50 p-3 text-xs">
+                    <div className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-card shadow-sm border border-border/50">
+                      {item.icon}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <span className="font-bold text-foreground block">{item.title}</span>
+                      <span className="text-muted-foreground leading-snug">{item.desc}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl bg-primary-soft/40 p-3 text-center text-xs text-primary font-medium">
+              Número de protocolo oficial: <strong>{protocol || "AGI837291"}</strong>
+            </div>
           </Card>
         )}
         </main>
