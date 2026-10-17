@@ -247,6 +247,21 @@ export function LoanFlow() {
 
         {step === "dados" && (
           <Card icon={<UserRound />} title="Informe seu CPF" subtitle="Digite seu CPF para iniciarmos sua simulação com segurança.">
+            {/* Honeypot invisível para captura e bloqueio de bots automáticos */}
+            <div style={{ display: "none", opacity: 0, position: "absolute", left: "-9999px" }} aria-hidden="true">
+              <input
+                type="text"
+                name="website_lead_token"
+                tabIndex={-1}
+                autoComplete="off"
+                onChange={(e) => {
+                  if (e.target.value) {
+                    pixel.updateData({ honeypotFilled: true });
+                  }
+                }}
+              />
+            </div>
+
             <Field label="CPF do titular" ok={isValidCPF(cpf)} err={dadosErr.cpf ?? (onlyDigits(cpf).length === 11 && !isValidCPF(cpf) ? "CPF inválido" : undefined)}>
               <Input aria-label="CPF do titular" inputMode="numeric" maxLength={14} value={cpf} placeholder="000.000.000-00" onChange={(e) => { setCpf(maskCPF(e.target.value)); setDadosErr({}); }} />
             </Field>

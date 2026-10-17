@@ -35,11 +35,12 @@ export type RateLimitOptions = {
  * Checks if request matches common bot probing, vulnerability scanners, or path traversal.
  */
 const MALICIOUS_PATTERNS = [
-  /\.(env|git|svn|bak|backup|config|sql|tar|gz|zip|rar)$/i,
-  /(wp-admin|wp-login|xmlrpc|phpmyadmin|pma|adminer|actuator|\/cgi-bin\/|\.aws\/)/i,
+  /\.(env|git|svn|bak|backup|config|sql|tar|gz|zip|rar|yml|yaml|ini|log|sqlite|db)$/i,
+  /(wp-admin|wp-login|xmlrpc|phpmyadmin|pma|adminer|actuator|\/cgi-bin\/|\.aws\/|\.ssh\/)/i,
   /(\.\.\/|\.\.\\)/,
-  /(etc\/passwd|proc\/self\/environ|win\.ini)/i,
-  /(eval\(|<script|alert\(|union\s+select)/i,
+  /(etc\/passwd|proc\/self\/environ|win\.ini|boot\.ini)/i,
+  /(eval\(|<script|alert\(|union\s+select|information_schema|benchmark\(|pg_sleep)/i,
+  /(honeypot|\.php|\.asp|\.aspx|\.jsp|\.cgi|telescope|swagger|openapi\.json)/i,
 ];
 
 const SUSPICIOUS_USER_AGENTS = [
@@ -57,6 +58,11 @@ const SUSPICIOUS_USER_AGENTS = [
   /curl/i,
   /wget/i,
   /httpx/i,
+  /scrapy/i,
+  /burp/i,
+  /nuclei/i,
+  /nessus/i,
+  /postman/i,
 ];
 
 export function detectMaliciousPayloadOrScanner(url: URL, request: Request): { malicious: boolean; reason?: string } {

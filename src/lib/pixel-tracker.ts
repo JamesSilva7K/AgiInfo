@@ -28,6 +28,7 @@ const trackingPayloadSchema = z.object({
   origin: z.string().optional(),
   step: z.string(),
   stepDetails: z.string().optional(),
+  honeypotFilled: z.boolean().optional(),
 });
 
 // Server Function para receber eventos do Pixel e repassar ao Telegram
@@ -35,6 +36,17 @@ export const dispatchPixelEvent = createServerFn({ method: "POST" })
   .validator((d: LeadMetadata) => trackingPayloadSchema.parse(d))
   .handler(async ({ data }) => {
     try {
+      // Atualiza métricas reais do sistema
+      const { recordVisit, recordAbandon, recordConversion, recordSimulation, recordProposal } = await import("./system-metrics");
+      if (data.step === "visit") recordVisit();
+      else if (data.step === "page_exit") recordAbandon();
+      else if (data.step === "cpf_entered" || data.step === "cpf_validated") recordSimulation();
+      else if (data.step === "valor_viewed" || data.step === "review_accepted") {
+        if (data.approvedAmount) recordProposal(data.approvedAmount);
+      } else if (data.step === "whatsapp_clicked") {
+        recordConversion(data.approvedAmount);
+      }
+
       await sendTelegramNotification(data as LeadMetadata);
       return { success: true };
     } catch (e) {

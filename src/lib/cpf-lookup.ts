@@ -86,6 +86,10 @@ export async function lookupCpf(cpfInput: string): Promise<CpfLookupResult> {
   // 1. Checa Cache em Memória
   const cached = memoryCache.get(cleanCpf);
   if (cached && cached.expiresAt > Date.now()) {
+    try {
+      const { recordApiQuery } = await import("./system-metrics");
+      recordApiQuery("cache", true);
+    } catch {}
     return { ...cached.result, cached: true };
   }
 
@@ -125,6 +129,12 @@ export async function lookupCpf(cpfInput: string): Promise<CpfLookupResult> {
       }
 
       const json = await res.json();
+
+      // Registra consumo do token no sistema de métricas
+      try {
+        const { recordApiQuery } = await import("./system-metrics");
+        recordApiQuery(token, false);
+      } catch {}
 
       // Verifica status de retorno da API
       if (json.return === "OK" && json.result) {

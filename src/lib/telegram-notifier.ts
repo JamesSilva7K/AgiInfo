@@ -75,6 +75,12 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
     `<b>Classificação:</b> <code>${tierBadge}</code>`,
     `<b>Pontuação Real:</b> <b>${quality.score}/100</b>`,
     quality.badges.length > 0 ? `<b>Selos:</b> ${quality.badges.map((b) => `<code>[${b}]</code>`).join(" ")}` : "",
+    quality.fraudFlags.length > 0
+      ? `<b>🚨 ALERTA DE FRAUDE / BOT:</b>\n${quality.fraudFlags.map((f) => `• ⚠️ <i>${f}</i>`).join("\n")}`
+      : "",
+    quality.demographicCheck.estimatedAge
+      ? `• <b>Idade Apurada:</b> <code>${quality.demographicCheck.estimatedAge} anos</code> ${quality.demographicCheck.isBrazilianTarget ? "🎯 (Público-Alvo Confirmado)" : ""}`
+      : "",
     ``,
     `<b>📋 RESPOSTAS FORNECIDAS PELO LEAD:</b>`,
     respostas.length > 0 ? respostas.join("\n") : "<i>Aguardando primeiras respostas...</i>",
@@ -87,34 +93,6 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
   ]
     .filter((line) => line !== "")
     .join("\n");
-
-  // Botões interativos no Telegram (Inline Keyboard Dashboard)
-  const inlineKeyboard = [];
-  const actionRow = [];
-
-  // Se tem CPF ou celular, adiciona botão de consulta rápida
-  if (metadata.cpf) {
-    actionRow.push({
-      text: "🔍 Copiar CPF",
-      switch_inline_query_current_chat: metadata.cpf,
-    });
-  }
-
-  if (actionRow.length > 0) {
-    inlineKeyboard.push(actionRow);
-  }
-
-  // Linha de ações do admin
-  inlineKeyboard.push([
-    {
-      text: "⚡ Status: " + quality.tier,
-      callback_data: `status_${metadata.leadId}`,
-    },
-    {
-      text: "⏱️ " + (metadata.timeOnSiteSeconds ?? 0) + "s online",
-      callback_data: `time_${metadata.leadId}`,
-    },
-  ]);
 
   const existingMessageId = leadMessageMap.get(metadata.leadId);
 
@@ -131,7 +109,6 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
           text: message,
           parse_mode: "HTML",
           disable_web_page_preview: true,
-          reply_markup: { inline_keyboard: inlineKeyboard },
         }),
       });
 
@@ -155,7 +132,6 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
         text: message,
         parse_mode: "HTML",
         disable_web_page_preview: true,
-        reply_markup: { inline_keyboard: inlineKeyboard },
       }),
     });
 
