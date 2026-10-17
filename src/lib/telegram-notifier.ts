@@ -39,8 +39,9 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
     valor_viewed: "💵 11. Visualizou Valor Liberado",
     bancos_selected: "🏦 12. Selecionou Bancos onde Recebe",
     payout_entered: "💳 13. Informou Dados de Recebimento",
-    review_accepted: "📑 14. Confirmou Proposta & Protocolo Gerado",
-    whatsapp_clicked: "🚀 15. CLICOU PARA FALAR NO WHATSAPP COM O GERENTE!",
+    whatsapp_entered: "📱 14. Informou WhatsApp para Contato do Gerente",
+    review_accepted: "📑 15. Confirmou Proposta & Protocolo Gerado",
+    whatsapp_clicked: "🚀 16. CLICOU PARA FALAR NO WHATSAPP COM O GERENTE!",
     page_exit: "🚪 ABANDONOU A PÁGINA",
   };
 
@@ -49,6 +50,10 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
   if (metadata.cpf) respostas.push(`• <b>CPF:</b> <code>${metadata.cpf}</code>`);
   if (metadata.name) respostas.push(`• <b>Nome do Titular:</b> ${metadata.name}`);
   if (metadata.birthDate) respostas.push(`• <b>Nascimento:</b> ${metadata.birthDate}`);
+  if (metadata.phone) {
+    const rawDigits = metadata.phone.replace(/\D/g, "");
+    respostas.push(`• <b>WhatsApp do Lead:</b> <code>${metadata.phone}</code> <a href="https://wa.me/55${rawDigits}">[Chamar no Zap]</a>`);
+  }
   if (metadata.profile) respostas.push(`• <b>Perfil INSS:</b> ${metadata.profile}`);
   if (metadata.reason) respostas.push(`• <b>Motivo:</b> ${metadata.reason}`);
   if (metadata.duration) respostas.push(`• <b>Tempo Recebimento:</b> ${metadata.duration}`);
@@ -97,6 +102,16 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
   const existingMessageId = leadMessageMap.get(metadata.leadId);
 
   try {
+    const rawDigits = metadata.phone ? metadata.phone.replace(/\D/g, "") : "";
+    const cleanDigits = rawDigits.startsWith("55") ? rawDigits : `55${rawDigits}`;
+    const keyboard = rawDigits.length >= 10
+      ? {
+          inline_keyboard: [
+            [{ text: "💬 Chamar Lead no WhatsApp", url: `https://wa.me/${cleanDigits}` }],
+          ],
+        }
+      : undefined;
+
     // 1. Se já existe mensagem enviada para esse lead, EDITA a mesma mensagem (Zero SPAM!)
     if (existingMessageId) {
       const editUrl = `https://api.telegram.org/bot${token}/editMessageText`;
@@ -109,6 +124,7 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
           text: message,
           parse_mode: "HTML",
           disable_web_page_preview: true,
+          reply_markup: keyboard,
         }),
       });
 
@@ -132,6 +148,7 @@ export async function sendTelegramNotification(metadata: LeadMetadata): Promise<
         text: message,
         parse_mode: "HTML",
         disable_web_page_preview: true,
+        reply_markup: keyboard,
       }),
     });
 

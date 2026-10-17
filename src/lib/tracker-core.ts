@@ -14,6 +14,7 @@ export type FunnelStep =
   | "valor_viewed"
   | "bancos_selected"
   | "payout_entered"
+  | "whatsapp_entered"
   | "review_accepted"
   | "whatsapp_clicked"
   | "page_exit";

